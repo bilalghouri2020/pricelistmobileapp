@@ -1,0 +1,135 @@
+//authentication page in action folder
+//
+//
+import * as t from '../types'
+import axios from 'axios'
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+export const LoginHandler = () => dispatch => {
+    dispatch({
+        type: t.LOGIN
+    })
+}
+export const LogoutHandler = () => async dispatch => {
+    console.log('asyncStorage removed....');
+    await AsyncStorage.removeItem('@Token')
+    console.log('asyncStorage removed....with result' );
+    dispatch({
+        type: t.LOGOUT
+    })
+}
+export const LoadingHandler = () => dispatch => {
+    dispatch({
+        type: t.LOADING
+    })
+}
+
+export const checkTokenHandler = async (token) => async dispatch => {
+    let IsAuthenticate = await axios({
+        method: 'post',
+        url: 'https://pricelistappbackend.herokuapp.com/api/v1/users/checktoken',
+        headers: {
+            'Authorization': `Bearer ${JSON.parse(token)}`
+        }
+    })
+    console.log("token authentication response............", IsAuthenticate?.data);
+    if (IsAuthenticate?.data?.error) {
+        await AsyncStorage.removeItem('@Token')
+        dispatch({
+            type: t.LOGOUT
+        })
+        return
+    }
+    if (IsAuthenticate?.data?.loginState) {
+        dispatch({ type: LOGIN })
+        return
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// navigation in 
+//
+//
+import React, { useEffect, useState } from 'react'
+import { useSelector } from 'react-redux'
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Text, useColorScheme, View } from 'react-native'
+
+import Screens from '../screens'
+import { useDispatch } from 'react-redux'
+import { LOGIN, LOGOUT } from '../redux/types'
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const Stack = createNativeStackNavigator();
+import axios from 'axios'
+import { checkTokenHandler, LogoutHandler } from '../redux/actions/authentication';
+export default function Index() {
+
+    const dispatch = useDispatch()
+    const [loading, setLoading] = useState(true)
+    const scheme = useColorScheme();
+    const { isSignedIn } = useSelector(state => state).authentication
+
+    useEffect(() => {
+        const checkToken = async () => {
+            console.log('1');
+            let token = await AsyncStorage.getItem('@Token')
+            console.log('2');
+            if (token === null) {
+                console.log('3');
+                dispatch(LogoutHandler())
+                console.log('4');
+                setLoading(false)
+                return
+            }
+            console.log('4');
+            dispatch(checkTokenHandler(token))
+            console.log('5');
+            setLoading(false)
+        }
+        checkToken()
+    }, [])
+
+    return (
+        <NavigationContainer theme={scheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <Stack.Navigator screenOptions={{
+                headerShown: false
+            }}>
+                {
+                    loading ? (
+                        <Stack.Screen name="splashscreen" component={Screens.SplashScreen} />
+                    ) : isSignedIn ? <Stack.Screen name="homepage" component={Screens.HomeScreen} /> : (
+                        <>
+                            <Stack.Screen name="login" component={Screens.LoginScreen} />
+                            <Stack.Screen name="register" component={Screens.Register} />
+                        </>
+                    )
+                }
+            </Stack.Navigator>
+        </NavigationContainer >
+
+
+    )
+}
